@@ -1,0 +1,5 @@
+# Base de datos y entornos
+churn.db
+__pycache__/
+.venv/
+env/
