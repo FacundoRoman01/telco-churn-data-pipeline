@@ -23,11 +23,10 @@ def generar_reporte_excel():
     consultas = {
         "Churn General": """
             SELECT 
-                Churn,
-                COUNT(*) AS total_clientes,
-                ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM clientes_churn), 2) AS porcentaje
-            FROM clientes_churn
-            GROUP BY Churn;
+                (SELECT COUNT(*) FROM clientes_churn) AS total_clientes,
+                SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) AS clientes_perdidos,
+                ROUND(SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS churn_rate_global
+            FROM clientes_churn;
         """,
         "Por Contrato": """
             SELECT 
