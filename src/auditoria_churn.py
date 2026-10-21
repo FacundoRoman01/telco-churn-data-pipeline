@@ -1,63 +1,96 @@
+import logging
 import os
-import pandas as pd
 import kagglehub
+import pandas as pd
 
-print("📥 Descargando/verificando el dataset con kagglehub...")
-# Descarga la última versión del dataset de Telco Churn
-path = kagglehub.dataset_download("blastchar/telco-customer-churn")
-print(f"📁 Ruta de los archivos descargados: {path}")
+# Configurar el sistema de logs para la auditoría
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 
-# Buscar automáticamente el archivo .csv dentro de la carpeta descargada
-archivos_csv = [f for f in os.listdir(path) if f.endswith('.csv')]
 
-if not archivos_csv:
-    print("❌ No se encontró ningún archivo CSV en la ruta descargada.")
-    exit()
+def ejecutar_auditoria():
+  try:
+    logging.info("Descargando/verificando el dataset con kagglehub...")
+    path = kagglehub.dataset_download("blastchar/telco-customer-churn")
+    logging.info(f"Ruta de los archivos descargados: {path}")
 
-CSV_PATH = os.path.join(path, archivos_csv[0])
-print(f"✅ Archivo detectado: {archivos_csv[0]}\n")
+    # Buscar automáticamente el archivo .csv dentro de la carpeta descargada
+    archivos_csv = [f for f in os.listdir(path) if f.endswith(".csv")]
 
-# Leer el dataset con Pandas
-try:
+    if not archivos_csv:
+      logging.error("No se encontró ningún archivo CSV en la ruta descargada.")
+      return
+
+    CSV_PATH = os.path.join(path, archivos_csv[0])
+    logging.info(f"Archivo detectado: {archivos_csv[0]}")
+
+    # Leer el dataset con Pandas
     df = pd.read_csv(CSV_PATH)
-    print(f"✅ Dataset leído con éxito. Total de registros: {df.shape[0]}, Columnas: {df.shape[1]}\n")
+    logging.info(
+        "Dataset leído con éxito. Total de registros:"
+        f" {df.shape[0]}, Columnas: {df.shape[1]}"
+    )
 
-except Exception as e:
-    print(f"❌ Error al leer el archivo CSV: {e}")
-    exit()
+    # 2. Auditoría de Calidad de Datos (Data Quality Check)
+    logging.info("=" * 50)
+    logging.info("📊 REPORTE DE CALIDAD DE DATOS (DATA QUALITY)")
+    logging.info("=" * 50)
 
-# 2. Auditoría de Calidad de Datos (Data Quality Check)
-print("="*50)
-print("📊 REPORTE DE CALIDAD DE DATOS (DATA QUALITY)")
-print("="*50)
+    # A. Tipos de datos por columna
+    logging.info("--- 1. Tipos de datos por columna ---")
+    print(df.dtypes)
 
-# A. Tipos de datos por columna
-print("\n--- 1. Tipos de datos por columna ---")
-print(df.dtypes)
+    # B. Conteo de valores nulos
+    logging.info("--- 2. Valores Nulos por Columna ---")
+    nulos = df.isnull().sum()
+    if nulos.sum() > 0:
+      logging.warning(
+          "Se encontraron valores nulos:\n"
+          f"{nulos[nulos > 0]}"
+      )
+    else:
+      logging.info("¡No hay valores nulos explícitos (NaN)!")
 
-# B. Conteo de valores nulos
-print("\n--- 2. Valores Nulos por Columna ---")
-nulos = df.isnull().sum()
-print(nulos[nulos > 0] if nulos.sum() > 0 else "¡No hay valores nulos explícitos (NaN)!")
+    # C. Detección de espacios en blanco ocultos en 'TotalCharges'
+    if "TotalCharges" in df.columns:
+      espacios_blanco = (
+          df["TotalCharges"].astype(str).str.strip().eq("").sum()
+      )
+      logging.info(
+          "--- 3. Auditoría de anomalías en 'TotalCharges' ---"
+      )
+      logging.info(
+          "Registros con espacios en blanco vacíos en 'TotalCharges':"
+          f" {espacios_blanco}"
+      )
 
-# C. Detección de espacios en blanco ocultos en 'TotalCharges'
-print("\n--- 3. Auditoría de anomalías en 'TotalCharges' ---")
-if 'TotalCharges' in df.columns:
-    espacios_blanco = df['TotalCharges'].astype(str).str.strip().eq('').sum()
-    print(f"Registros con espacios en blanco vacíos en 'TotalCharges': {espacios_blanco}")
+    # D. Duplicados
+    duplicados = df.duplicated().sum()
+    logging.info("--- 4. Registros Duplicados ---")
+    logging.info(f"Filas totalmente duplicadas: {duplicados}")
 
-# D. Duplicados
-print("\n--- 4. Registros Duplicados ---")
-duplicados = df.duplicated().sum()
-print(f"Filas totalmente duplicadas: {duplicados}")
+    # E. Distribución de la variable objetivo (Churn)
+    if "Churn" in df.columns:
+      logging.info(
+          "--- 5. Distribución de la Variable Objetivo (Churn) ---"
+      )
+      print(df["Churn"].value_counts(dropna=False))
+      print("\nPorcentajes:")
+      print(df["Churn"].value_counts(normalize=True) * 100)
 
-# E. Distribución de la variable objetivo (Churn)
-print("\n--- 5. Distribución de la Variable Objetivo (Churn) ---")
-if 'Churn' in df.columns:
-    print(df['Churn'].value_counts(dropna=False))
-    print("\nPorcentajes:")
-    print(df['Churn'].value_counts(normalize=True) * 100)
+    logging.info("=" * 50)
+    logging.info("🏁 Auditoría finalizada exitosamente.")
+    logging.info("=" * 50)
 
-print("\n" + "="*50)
-print("🏁 Auditoría finalizada.")
-print("="*50)
+  except Exception as e:
+    logging.critical(
+        f"Ocurrió un error crítico durante la auditoría de datos: {e}"
+    )
+    raise
+
+
+if __name__ == "__main__":
+  ejecutar_auditoria()
